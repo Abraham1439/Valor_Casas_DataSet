@@ -80,7 +80,7 @@ pip install -r requirements.txt
 
 **4. Verificar instalación:**
 ```bash
-python -c "import pandas, numpy, sklearn, seaborn; print('✅ Todo instalado correctamente')"
+python -c "import pandas, numpy, sklearn, seaborn; print('Todo instalado correctamente')"
 ```
 
 ---
