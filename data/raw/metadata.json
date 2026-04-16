@@ -1,0 +1,8 @@
+{
+    "file": "Casas_usadas_-_RM_Mayo_2020.xlsx",
+    "hash_sha256": "cf754539191d41ff745c3c46f774e2e2dbe21ada16f2eb506c0b9d048fff2e2d",
+    "descripcion": "Dataset de casas usadas en la Región Metropolitana, Mayo 2020.",
+    "fuente": "Portal inmobiliario chileno",
+    "registros": 1139,
+    "columnas": 13
+}
