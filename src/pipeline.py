@@ -18,6 +18,7 @@ import pandas as pd
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer, make_column_selector
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.feature_selection import VarianceThreshold
 
 from src.transformers import (
     DropColumnsTransformer,
@@ -25,7 +26,6 @@ from src.transformers import (
     SurfaceToNumericTransformer,
     DropHighMissingTransformer,
     OutlierCapper,
-    DropZeroVarianceTransformer,
     SmartImputerTransformer,
     TargetCreatorTransformer,
 )
@@ -53,37 +53,43 @@ def build_preprocessing_pipeline() -> Pipeline:
         Pipeline: Pipeline de scikit-learn listo para fit_transform().
     """
 
-    # --- Sub-pipeline numérico ---
-    # Aplica outlier capping, elimina varianza cero y estandariza
+    # 1. Definimos el nombre exacto de la variable objetivo que crea el transformer
+    TARGET_COL = "precio_sobre_mediana"
+
+    # 2. Funciones dinámicas para proteger el Target del escalado
+    def select_numeric(X):
+        return [col for col in X.select_dtypes(include=["number"]).columns if col != TARGET_COL]
+
+    def select_categorical(X):
+        return [col for col in X.select_dtypes(exclude=["number"]).columns if col != TARGET_COL]
+
+    # 3. Rutas de procesamiento
     num_pipe = Pipeline([
         ("capper", OutlierCapper(apply_capping=True)),
-        ("zero_variance", DropZeroVarianceTransformer()),
+        ("zero_variance", VarianceThreshold(threshold=0.0)),
         ("scaler", StandardScaler()),
     ])
 
-    # --- Sub-pipeline categórico ---
-    # OneHotEncoding para variables de texto como 'Comuna'
     cat_pipe = Pipeline([
         ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
     ])
 
-    # --- ColumnTransformer: enruta numéricas vs categóricas ---
+    # 4. Enrutador con passthrough para salvar el target
     preprocessor = ColumnTransformer(
         transformers=[
-            ("num", num_pipe, make_column_selector(dtype_include="number")),
-            ("cat", cat_pipe, make_column_selector(dtype_exclude="number")),
+            ("num", num_pipe, select_numeric),
+            ("cat", cat_pipe, select_categorical),
         ],
-        remainder="drop",
+        remainder="passthrough",
     )
 
-    # --- Pipeline maestro ---
+    # 5. Pipeline maestro (Eliminamos el OutlierCapper redundante global)
     full_pipeline = Pipeline([
         ("drop_leaks",     DropColumnsTransformer(columns_to_drop=COLUMNS_TO_DROP)),
         ("parking_fix",    ParkingToNumericTransformer()),
         ("surface_fix",    SurfaceToNumericTransformer()),
         ("target_creator", TargetCreatorTransformer()),
         ("drop_high_nan",  DropHighMissingTransformer(threshold=0.8)),
-        ("outlier_capper", OutlierCapper(apply_capping=True)),
         ("smart_imputer",  SmartImputerTransformer(low_threshold=0.10)),
         ("preprocessing",  preprocessor),
     ])
